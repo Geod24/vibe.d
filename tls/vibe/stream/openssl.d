@@ -413,14 +413,22 @@ final class OpenSSLStream : TLSStream {
 		m_stream.flush();
 	}
 
-	void finalize()
+    /**
+     * Finalize this stream, ensuring that the tunnel is properly closed
+     *
+     * Params:
+     *   shutdown = Whether to call `SSL_shutdown` on the stream.
+     */
+	void finalize(bool shutdown = true)
 	{
 		if( !m_tls ) return;
 		logTrace("OpenSSLStream finalize");
 
 		() @trusted {
-			auto ret = SSL_shutdown(m_tls);
-			if (ret != 0) checkSSLRet(ret, "SSL_shutdown");
+			if (shutdown) {
+				auto ret = SSL_shutdown(m_tls);
+				if (ret != 0) checkSSLRet(ret, "SSL_shutdown");
+			}
 			SSL_free(m_tls);
 			ERR_clear_error();
 		} ();
@@ -470,6 +478,7 @@ final class OpenSSLStream : TLSStream {
 				} else {
 					desc = "non-recoverable socket I/O error";
 				}
+                this.finalize(false);
 				break;
 			case SSL_ERROR_SSL:
 				throwSSL(what);
